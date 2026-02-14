@@ -1,0 +1,16 @@
+# Fly.io configuration for the worker service
+# 1) fly launch --no-deploy (from apps/worker)
+# 2) fly secrets set DATABASE_URL=... DIRECT_URL=... REDIS_QUEUE_URL=... ABLY_API_KEY=...
+# 3) fly deploy
+
+app = "cultivated-crm-worker"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+
+# This is a worker (no HTTP service required). Fly still expects a process to run.
+# If you want health checks, you can add a tiny HTTP server in the worker and expose it here.
