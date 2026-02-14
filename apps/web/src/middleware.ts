@@ -1,5 +1,7 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/lib/auth.config";
 import { NextResponse } from "next/server";
+const { auth } = NextAuth(authConfig);
 
 // ─── SECURITY HEADERS ────────────────────────────────────────
 // Applied to all matched routes. Equivalent to helmet.js but edge-compatible.
@@ -122,5 +124,7 @@ export const config = {
     "/api/export/:path*",
     "/api/bulk/:path*",
     "/api/users/:path*",
+    "/api/teams/:path*",
+    "/api/ably-token",
   ],
 };

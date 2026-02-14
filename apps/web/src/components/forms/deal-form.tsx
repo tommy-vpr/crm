@@ -62,7 +62,7 @@ export function DealForm({
           id="title"
           {...register("title")}
           error={errors.title?.message}
-          placeholder="e.g. Acme Corp - Enterprise Plan"
+          placeholder="e.g. Vape Essentials"
         />
       </div>
 
@@ -82,7 +82,11 @@ export function DealForm({
           <Label htmlFor="stageId" required>
             Stage
           </Label>
-          <Select id="stageId" {...register("stageId")} error={errors.stageId?.message}>
+          <Select
+            id="stageId"
+            {...register("stageId")}
+            error={errors.stageId?.message}
+          >
             {stages.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}

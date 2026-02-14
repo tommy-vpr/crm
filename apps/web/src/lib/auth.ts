@@ -34,6 +34,68 @@ function maybeUpdateLastActive(userId: string) {
     });
 }
 
+async function provisionNewUser(userId: string, name: string) {
+  try {
+    await prisma.$transaction(async (tx: any) => {
+      const team = await tx.team.create({
+        data: { name: `${name}'s Team` },
+      });
+
+      await tx.teamMember.create({
+        data: { userId, teamId: team.id, role: "LEAD" },
+      });
+
+      await tx.pipeline.create({
+        data: {
+          name: "Sales Pipeline",
+          isDefault: true,
+          teamId: team.id,
+          stages: {
+            create: [
+              { name: "Lead", position: 0, color: "#6B7280", probability: 10 },
+              {
+                name: "Qualified",
+                position: 1,
+                color: "#3B82F6",
+                probability: 25,
+              },
+              {
+                name: "Proposal",
+                position: 2,
+                color: "#8B5CF6",
+                probability: 50,
+              },
+              {
+                name: "Negotiation",
+                position: 3,
+                color: "#F59E0B",
+                probability: 75,
+              },
+              {
+                name: "Closed Won",
+                position: 4,
+                color: "#10B981",
+                probability: 100,
+                isWon: true,
+              },
+              {
+                name: "Closed Lost",
+                position: 5,
+                color: "#EF4444",
+                probability: 0,
+                isLost: true,
+              },
+            ],
+          },
+        },
+      });
+    });
+    console.log(`[auth] Provisioned team + pipeline for user ${userId}`);
+  } catch (err) {
+    console.error("[auth] Failed to provision new user:", err);
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
 
@@ -57,9 +119,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id!;
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id! },
-          select: { role: true },
+          select: { role: true, teamMemberships: { select: { id: true } } },
         });
         token.role = (dbUser?.role as UserRole) ?? "MEMBER";
+
+        // Auto-provision team + pipeline on first sign-in
+        if (!dbUser?.teamMemberships?.length) {
+          await provisionNewUser(user.id!, user.name ?? user.email ?? "My");
+        }
       }
 
       if (trigger === "update" && token.id) {

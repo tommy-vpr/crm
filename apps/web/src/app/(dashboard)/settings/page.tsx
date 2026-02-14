@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { usePipelines, useCreatePipeline, useReorderStages } from "@/hooks/use-pipelines";
+import {
+  usePipelines,
+  useCreatePipeline,
+  useReorderStages,
+} from "@/hooks/use-pipelines";
 import { pipelinesService } from "@/services/pipelines";
 import { PageWrapper } from "@/components/layout/page-wrapper";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ import {
 } from "@/components/ui/index";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { TeamManagement } from "@/components/settings/team-management";
 
 // ─── Stage Editor Row ────────────────────────────────────────────
 
@@ -115,7 +120,9 @@ function StageRow({
         className="h-4 w-4 rounded-full flex-shrink-0"
         style={{ backgroundColor: stage.color }}
       />
-      <span className="text-sm font-medium text-slate-900 flex-1">{stage.name}</span>
+      <span className="text-sm font-medium text-slate-900 flex-1">
+        {stage.name}
+      </span>
       <span className="text-xs text-slate-500">{stage.probability}%</span>
       {stage.isWon && <Badge variant="success">Won</Badge>}
       {stage.isLost && <Badge variant="destructive">Lost</Badge>}
@@ -198,7 +205,9 @@ function PipelineCard({
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-slate-900">{pipeline.name}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {pipeline.name}
+          </h3>
           {pipeline.isDefault && <Badge variant="success">Default</Badge>}
           <span className="text-sm text-slate-500">
             {pipeline._count?.deals ?? 0} deals
@@ -210,7 +219,11 @@ function PipelineCard({
               Set Default
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setShowAddStage(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddStage(true)}
+          >
             + Stage
           </Button>
           <Button
@@ -255,7 +268,11 @@ function PipelineCard({
           <Button size="sm" onClick={handleAddStage} loading={adding}>
             Add
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowAddStage(false)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowAddStage(false)}
+          >
             Cancel
           </Button>
         </div>
@@ -286,7 +303,7 @@ export default function SettingsPage() {
           setNewPipelineName("");
           setShowCreate(false);
         },
-      }
+      },
     );
   };
 
@@ -301,6 +318,8 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <TeamManagement />
+
       {/* Pipeline Management */}
       <section className="mb-8">
         <div className="mb-4 flex items-center justify-between">
@@ -310,7 +329,11 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           {pipelines?.map((pipeline: any) => (
-            <PipelineCard key={pipeline.id} pipeline={pipeline} onUpdated={refresh} />
+            <PipelineCard
+              key={pipeline.id}
+              pipeline={pipeline}
+              onUpdated={refresh}
+            />
           ))}
         </div>
 
@@ -331,7 +354,9 @@ export default function SettingsPage() {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
-            A new pipeline will be created with default stages (Lead → Qualified → Proposal → Negotiation → Won → Lost). You can customize them after.
+            A new pipeline will be created with default stages (Lead → Qualified
+            → Proposal → Negotiation → Won → Lost). You can customize them
+            after.
           </p>
           <div>
             <label className="text-sm font-medium">Pipeline Name</label>
