@@ -50,6 +50,7 @@ async function provisionNewUser(userId: string, name: string) {
           name: "Sales Pipeline",
           isDefault: true,
           teamId: team.id,
+          createdById: userId,
           stages: {
             create: [
               { name: "Lead", position: 0, color: "#6B7280", probability: 10 },
@@ -109,7 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
 
-  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET ?? process.env.AUTH_SECRET,
   trustHost: true,
 
   callbacks: {

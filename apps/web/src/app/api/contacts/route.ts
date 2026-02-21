@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@cultivated-crm/db";
 import { CreateContactSchema } from "@cultivated-crm/shared";
-import { apiHandler, requirePermission, parseSearchParams } from "@/lib/api-utils";
+import {
+  apiHandler,
+  requirePermission,
+  parseSearchParams,
+} from "@/lib/api-utils";
 import { publishEvent, buildChannels } from "@/lib/events";
-import { scopeWhere, validateTeamMembership } from "@/lib/authorization";
+import {
+  getUserDefaultTeamId,
+  scopeWhere,
+  validateTeamMembership,
+} from "@/lib/authorization";
 
 export const runtime = "nodejs";
 
@@ -23,7 +31,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
           { firstName: { contains: params.search, mode: "insensitive" } },
           { lastName: { contains: params.search, mode: "insensitive" } },
           { email: { contains: params.search, mode: "insensitive" } },
-          { company: { name: { contains: params.search, mode: "insensitive" } } },
+          {
+            company: { name: { contains: params.search, mode: "insensitive" } },
+          },
         ],
       },
     ];
@@ -61,12 +71,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const data = CreateContactSchema.parse(body);
 
-  // P0: Validate team membership if teamId provided
-  if ((data as any).teamId) await validateTeamMembership(user.id, (data as any).teamId);
+  let teamId = body.teamId ?? (await getUserDefaultTeamId(user.id));
+  if (teamId) await validateTeamMembership(user.id, teamId);
 
   const contact = await prisma.contact.create({
     data: {
       ...(data as any),
+      teamId,
       ownerId: data.ownerId ?? user.id,
     },
     include: {
@@ -91,7 +102,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
     channels: buildChannels({
       userId: user.id,
-      teamId: (contact as any).teamId,
+      teamId,
       contactId: contact.id,
     }),
   });

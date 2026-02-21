@@ -7,7 +7,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -15,7 +15,13 @@ import { usePipelines } from "@/hooks/use-pipelines";
 import { usePipelineDeals } from "@/hooks/use-deals";
 import { useCreateDeal, useMoveDealStage } from "@/hooks/use-deal-mutations";
 import { Button } from "@/components/ui/button";
-import { Select, PageLoader, Dialog, DialogHeader, DialogTitle } from "@/components/ui/index";
+import {
+  Select,
+  PageLoader,
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/index";
 import { StageColumn } from "@/components/cards/stage-column";
 import { DealCardInner } from "@/components/cards/deal-card";
 import { DealForm } from "@/components/forms/deal-form";
@@ -37,7 +43,8 @@ export default function PipelinePage() {
 
   const currentPipeline = pipelines?.find((p: any) => p.id === pipelineId);
 
-  const { data: dealsData, isLoading: loadingDeals } = usePipelineDeals(pipelineId);
+  const { data: dealsData, isLoading: loadingDeals } =
+    usePipelineDeals(pipelineId);
   const createDeal = useCreateDeal();
   const moveDeal = useMoveDealStage();
 
@@ -64,7 +71,7 @@ export default function PipelinePage() {
 
   // Drag and drop
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -75,11 +82,17 @@ export default function PipelinePage() {
     (event: DragEndEvent) => {
       const { active, over } = event;
       setActiveDeal(null);
-      if (!over) return;
+      if (!over) {
+        console.log("[DnD] No drop target");
+        return;
+      }
 
       const dealId = active.id as string;
       const deal = active.data.current?.deal;
-      if (!deal) return;
+      if (!deal) {
+        console.log("[DnD] No deal data on active");
+        return;
+      }
 
       let targetStageId: string;
       let targetPosition: number | undefined;
@@ -94,11 +107,26 @@ export default function PipelinePage() {
         targetStageId = over.id as string;
       }
 
-      if (deal.stageId === targetStageId && targetPosition === undefined) return;
+      if (deal.stageId === targetStageId && targetPosition === undefined) {
+        console.log("[DnD] Same stage, no position change — skipping");
+        return;
+      }
 
-      moveDeal.mutate({ dealId, stageId: targetStageId, position: targetPosition });
+      console.log(
+        "[DnD] Moving",
+        dealId,
+        "from",
+        deal.stageId,
+        "to",
+        targetStageId,
+      );
+      moveDeal.mutate({
+        dealId,
+        stageId: targetStageId,
+        position: targetPosition,
+      });
     },
-    [dealsByStage, moveDeal]
+    [dealsByStage, moveDeal],
   );
 
   const handleAddDeal = (stageId: string) => {
@@ -111,7 +139,9 @@ export default function PipelinePage() {
   if (!pipelines?.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <h2 className="text-lg font-semibold text-slate-900">No Pipeline Yet</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          No Pipeline Yet
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
           Create your first sales pipeline to start tracking deals.
         </p>
@@ -143,9 +173,12 @@ export default function PipelinePage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-slate-500">
-            {dealsData?.total ?? 0} deal{(dealsData?.total ?? 0) !== 1 ? "s" : ""}
+            {dealsData?.total ?? 0} deal
+            {(dealsData?.total ?? 0) !== 1 ? "s" : ""}
           </span>
-          <Button onClick={() => handleAddDeal(stages[0]?.id)}>+ New Deal</Button>
+          <Button onClick={() => handleAddDeal(stages[0]?.id)}>
+            + New Deal
+          </Button>
         </div>
       </div>
 
@@ -156,7 +189,7 @@ export default function PipelinePage() {
         <div className="flex-1 overflow-x-auto">
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={pointerWithin}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >

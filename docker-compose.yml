@@ -1,0 +1,104 @@
+services:
+  # ── PostgreSQL ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password
+      POSTGRES_DB: cultivated_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_user -d cultivated_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Web App ────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: sh -c "node node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma && cd apps/web && node ../../node_modules/.bin/next dev"
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - WATCHPACK_POLLING=true
+    volumes:
+      # Source mounts for hot reload (do NOT mount entire project)
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/public:/app/apps/web/public
+      - ./packages/db/prisma:/app/packages/db/prisma
+      - ./packages/db/src:/app/packages/db/src
+      - ./packages/shared/src:/app/packages/shared/src
+      # Env file where prisma.config.js expects it (../../.env from packages/db)
+      - ./.env.docker:/app/.env
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── BullMQ Worker ──────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: sh -c "cd apps/worker && node ../../node_modules/.bin/tsx watch src/index.ts"
+    restart: unless-stopped
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./apps/worker/src:/app/apps/worker/src
+      - ./packages/db/src:/app/packages/db/src
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./.env.docker:/app/.env
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Prisma Studio (optional, access at :5555) ──────────
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: sh -c "cd packages/db && node ../../node_modules/.bin/prisma studio"
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./.env.docker:/app/.env
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
+  redisdata:

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@cultivated-crm/db";
 import { CreateDealSchema } from "@cultivated-crm/shared";
-import { apiHandler, requirePermission, parseSearchParams } from "@/lib/api-utils";
+import {
+  apiHandler,
+  requirePermission,
+  parseSearchParams,
+} from "@/lib/api-utils";
 import { publishEvent, buildChannels } from "@/lib/events";
 import { scopeWhere, validateTeamMembership } from "@/lib/authorization";
 
@@ -28,7 +32,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       {
         OR: [
           { title: { contains: params.search, mode: "insensitive" } },
-          { company: { name: { contains: params.search, mode: "insensitive" } } },
+          {
+            company: { name: { contains: params.search, mode: "insensitive" } },
+          },
         ],
       },
     ];
@@ -47,12 +53,30 @@ export const GET = apiHandler(async (req: NextRequest) => {
     prisma.deal.findMany({
       where,
       include: {
-        stage: { select: { id: true, name: true, color: true, position: true, isWon: true, isLost: true } },
-        owner: { select: { id: true, name: true, avatarUrl: true, image: true } },
+        stage: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            position: true,
+            isWon: true,
+            isLost: true,
+          },
+        },
+        owner: {
+          select: { id: true, name: true, avatarUrl: true, image: true },
+        },
         company: { select: { id: true, name: true } },
         contacts: {
           include: {
-            contact: { select: { id: true, firstName: true, lastName: true, email: true } },
+            contact: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         _count: { select: { activities: true, tasks: true } },
@@ -73,8 +97,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const { contactIds, ...data } = CreateDealSchema.parse(body);
 
+  // Auto-assign team if not provided
+  let teamId = data.teamId;
+  if (!teamId) {
+    const membership = await prisma.teamMember.findFirst({
+      where: { userId: user.id },
+      select: { teamId: true },
+    });
+    teamId = membership?.teamId ?? undefined;
+  }
+
   // P0: Prevent teamId spoofing — user must be a member of the target team
-  await validateTeamMembership(user.id, data.teamId);
+  if (teamId) await validateTeamMembership(user.id, teamId);
 
   const lastDeal = await prisma.deal.findFirst({
     where: { stageId: data.stageId },
@@ -90,7 +124,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       stageId: data.stageId,
       pipelineId: data.pipelineId,
       companyId: data.companyId,
-      teamId: data.teamId,
+      teamId,
       priority: data.priority,
       expectedCloseDate: data.expectedCloseDate,
       description: data.description,
@@ -102,7 +136,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
         : undefined,
     },
     include: {
-      stage: { select: { id: true, name: true, color: true, position: true, isWon: true, isLost: true } },
+      stage: {
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          position: true,
+          isWon: true,
+          isLost: true,
+        },
+      },
       owner: { select: { id: true, name: true, avatarUrl: true, image: true } },
       company: { select: { id: true, name: true } },
       contacts: {

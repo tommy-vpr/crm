@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import { Providers } from "@/components/layout/providers";
 import "@/styles/globals.css";
 
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -18,7 +20,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <ConfirmProvider>{children}</ConfirmProvider>
+        </Providers>
       </body>
     </html>
   );

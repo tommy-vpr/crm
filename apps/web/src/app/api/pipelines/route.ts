@@ -17,7 +17,7 @@ const CreatePipelineSchema = z.object({
         probability: z.number().min(0).max(100).default(0),
         isWon: z.boolean().default(false),
         isLost: z.boolean().default(false),
-      })
+      }),
     )
     .optional(),
 });
@@ -31,6 +31,8 @@ export const GET = apiHandler(async () => {
     where: scope.pipeline,
     include: {
       stages: { orderBy: { position: "asc" } },
+      team: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true, email: true, image: true } },
       _count: { select: { deals: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -45,21 +47,68 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const data = CreatePipelineSchema.parse(body);
 
-  if (data.teamId) await validateTeamMembership(user.id, data.teamId);
+  // Auto-assign team if not provided
+  let teamId = data.teamId;
+  if (!teamId) {
+    const membership = await prisma.teamMember.findFirst({
+      where: { userId: user.id },
+      select: { teamId: true },
+    });
+    teamId = membership?.teamId ?? undefined;
+  }
+
+  if (teamId) await validateTeamMembership(user.id, teamId);
 
   const defaultStages = data.stages ?? [
-    { name: "Lead", color: "#6B7280", probability: 10, isWon: false, isLost: false },
-    { name: "Qualified", color: "#3B82F6", probability: 25, isWon: false, isLost: false },
-    { name: "Proposal", color: "#8B5CF6", probability: 50, isWon: false, isLost: false },
-    { name: "Negotiation", color: "#F59E0B", probability: 75, isWon: false, isLost: false },
-    { name: "Won", color: "#10B981", probability: 100, isWon: true, isLost: false },
-    { name: "Lost", color: "#EF4444", probability: 0, isWon: false, isLost: true },
+    {
+      name: "Lead",
+      color: "#6B7280",
+      probability: 10,
+      isWon: false,
+      isLost: false,
+    },
+    {
+      name: "Qualified",
+      color: "#3B82F6",
+      probability: 25,
+      isWon: false,
+      isLost: false,
+    },
+    {
+      name: "Proposal",
+      color: "#8B5CF6",
+      probability: 50,
+      isWon: false,
+      isLost: false,
+    },
+    {
+      name: "Negotiation",
+      color: "#F59E0B",
+      probability: 75,
+      isWon: false,
+      isLost: false,
+    },
+    {
+      name: "Won",
+      color: "#10B981",
+      probability: 100,
+      isWon: true,
+      isLost: false,
+    },
+    {
+      name: "Lost",
+      color: "#EF4444",
+      probability: 0,
+      isWon: false,
+      isLost: true,
+    },
   ];
 
   const pipeline = await prisma.pipeline.create({
     data: {
       name: data.name,
-      teamId: data.teamId,
+      teamId,
+      createdById: user.id,
       stages: {
         create: defaultStages.map((s, i) => ({ ...s, position: i })),
       },

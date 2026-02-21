@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useContacts, useCreateContact, useDeleteContact } from "@/hooks/use-contacts";
+import {
+  useContacts,
+  useCreateContact,
+  useDeleteContact,
+} from "@/hooks/use-contacts";
 import { useBulkOperation } from "@/hooks/use-bulk";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PageWrapper } from "@/components/layout/page-wrapper";
@@ -64,7 +68,8 @@ export default function ContactsPage() {
   const contacts = data?.contacts ?? [];
   const total = data?.total ?? 0;
 
-  const allSelected = contacts.length > 0 && contacts.every((c: any) => selected.has(c.id));
+  const allSelected =
+    contacts.length > 0 && contacts.every((c: any) => selected.has(c.id));
 
   function toggleAll() {
     if (allSelected) {
@@ -85,15 +90,25 @@ export default function ContactsPage() {
     if (!confirm(`Delete ${selected.size} contact(s)?`)) return;
     bulkOp.mutate(
       { entity: "contacts", action: "delete", ids: Array.from(selected) },
-      { onSuccess: () => setSelected(new Set()) }
+      { onSuccess: () => setSelected(new Set()) },
     );
   }
 
   function handleBulkStatus() {
     if (!bulkStatus) return;
     bulkOp.mutate(
-      { entity: "contacts", action: "update_status", ids: Array.from(selected), status: bulkStatus },
-      { onSuccess: () => { setSelected(new Set()); setBulkStatus(""); } }
+      {
+        entity: "contacts",
+        action: "update_status",
+        ids: Array.from(selected),
+        status: bulkStatus,
+      },
+      {
+        onSuccess: () => {
+          setSelected(new Set());
+          setBulkStatus("");
+        },
+      },
     );
   }
 
@@ -107,7 +122,9 @@ export default function ContactsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Contacts</h1>
-          <p className="text-sm text-slate-500">{total} contact{total !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-slate-500">
+            {total} contact{total !== 1 ? "s" : ""}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleExport}>
@@ -141,7 +158,9 @@ export default function ContactsPage() {
       {/* Bulk Actions Bar */}
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
-          <span className="text-sm font-medium text-primary">{selected.size} selected</span>
+          <span className="text-sm font-medium text-primary">
+            {selected.size} selected
+          </span>
           <div className="h-4 w-px bg-primary/20" />
           <Select
             value={bulkStatus}
@@ -154,7 +173,11 @@ export default function ContactsPage() {
             <option value="CHURNED">Churned</option>
           </Select>
           {bulkStatus && (
-            <Button size="sm" onClick={handleBulkStatus} disabled={bulkOp.isPending}>
+            <Button
+              size="sm"
+              onClick={handleBulkStatus}
+              disabled={bulkOp.isPending}
+            >
               Apply
             </Button>
           )}
@@ -182,8 +205,16 @@ export default function ContactsPage() {
       ) : contacts.length === 0 ? (
         <EmptyState
           title="No contacts yet"
-          description={search ? "Try a different search term" : "Add your first contact to get started"}
-          action={!search ? <Button onClick={() => setShowCreate(true)}>+ New Contact</Button> : undefined}
+          description={
+            search
+              ? "Try a different search term"
+              : "Add your first contact to get started"
+          }
+          action={
+            !search ? (
+              <Button onClick={() => setShowCreate(true)}>+ New Contact</Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-white">
@@ -213,7 +244,7 @@ export default function ContactsPage() {
                   key={contact.id}
                   className={cn(
                     "transition hover:bg-slate-50",
-                    selected.has(contact.id) && "bg-primary/5"
+                    selected.has(contact.id) && "bg-primary/5",
                   )}
                 >
                   <td className="px-4 py-3">
@@ -229,13 +260,18 @@ export default function ContactsPage() {
                       href={`/contacts/${contact.id}`}
                       className="flex items-center gap-3"
                     >
-                      <Avatar name={`${contact.firstName} ${contact.lastName}`} size="sm" />
+                      <Avatar
+                        name={`${contact.firstName} ${contact.lastName}`}
+                        size="sm"
+                      />
                       <div>
                         <p className="font-medium text-slate-900">
                           {contact.firstName} {contact.lastName}
                         </p>
                         {contact.email && (
-                          <p className="text-xs text-slate-500">{contact.email}</p>
+                          <p className="text-xs text-slate-500">
+                            {contact.email}
+                          </p>
                         )}
                       </div>
                     </Link>
@@ -267,7 +303,9 @@ export default function ContactsPage() {
                     {contact.owner ? (
                       <div className="flex items-center gap-2">
                         <Avatar name={contact.owner.name} size="sm" />
-                        <span className="text-slate-600">{contact.owner.name}</span>
+                        <span className="text-slate-600">
+                          {contact.owner.name}
+                        </span>
                       </div>
                     ) : (
                       <span className="text-slate-400">Unassigned</span>
@@ -289,7 +327,12 @@ export default function ContactsPage() {
               ))}
             </tbody>
           </table>
-          <Pagination total={total} limit={limit} offset={offset} onPageChange={setOffset} />
+          <Pagination
+            total={total}
+            limit={limit}
+            offset={offset}
+            onPageChange={setOffset}
+          />
         </div>
       )}
 

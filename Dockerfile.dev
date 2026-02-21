@@ -1,0 +1,23 @@
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+WORKDIR /app
+
+# CRITICAL: node-linker=hoisted creates flat node_modules like npm (zero symlinks)
+RUN printf 'node-linker=hoisted\n' > .npmrc
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/db/package.json ./packages/db/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN pnpm install --no-frozen-lockfile
+
+COPY . .
+
+# Verify and generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma

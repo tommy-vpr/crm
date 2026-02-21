@@ -6,16 +6,7 @@ import { PageWrapper } from "@/components/layout/page-wrapper";
 import { StatCard } from "@/components/cards/stat-card";
 import { Card, PageLoader, Select, Badge } from "@/components/ui/index";
 import { cn } from "@/lib/utils";
-
-function formatCurrency(value: number) {
-  if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-}
+import { formatCurrency } from "@/utils/formatCurrency";
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState(30);
@@ -69,7 +60,13 @@ export default function AnalyticsPage() {
           label="Win Rate"
           value={`${overview.winRate}%`}
           subValue={`${overview.lostDeals} lost`}
-          trend={overview.winRate >= 50 ? "up" : overview.winRate > 0 ? "down" : "neutral"}
+          trend={
+            overview.winRate >= 50
+              ? "up"
+              : overview.winRate > 0
+                ? "down"
+                : "neutral"
+          }
         />
         <StatCard
           label="Activities"
@@ -128,7 +125,9 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No active deals in pipeline</p>
+              <p className="text-sm text-slate-400">
+                No active deals in pipeline
+              </p>
             )}
           </Card>
 
@@ -142,7 +141,7 @@ export default function AnalyticsPage() {
                 {revenueTrend.map((week: any) => {
                   const maxVal = Math.max(
                     ...revenueTrend.map((w: any) => w.value),
-                    1
+                    1,
                   );
                   return (
                     <div key={week.week} className="flex items-center gap-3">
@@ -172,7 +171,9 @@ export default function AnalyticsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No deals won in this period</p>
+              <p className="text-sm text-slate-400">
+                No deals won in this period
+              </p>
             )}
           </Card>
         </div>
@@ -187,15 +188,21 @@ export default function AnalyticsPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Total Contacts</dt>
-                <dd className="font-semibold text-slate-900">{overview.totalContacts}</dd>
+                <dd className="font-semibold text-slate-900">
+                  {overview.totalContacts}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">New Contacts</dt>
-                <dd className="font-semibold text-emerald-600">+{overview.newContactsInPeriod}</dd>
+                <dd className="font-semibold text-emerald-600">
+                  +{overview.newContactsInPeriod}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Companies</dt>
-                <dd className="font-semibold text-slate-900">{overview.totalCompanies}</dd>
+                <dd className="font-semibold text-slate-900">
+                  {overview.totalCompanies}
+                </dd>
               </div>
             </dl>
           </Card>
@@ -208,18 +215,26 @@ export default function AnalyticsPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Open Tasks</dt>
-                <dd className="font-semibold text-slate-900">{overview.openTasks}</dd>
+                <dd className="font-semibold text-slate-900">
+                  {overview.openTasks}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Completed</dt>
-                <dd className="font-semibold text-emerald-600">{overview.completedTasks}</dd>
+                <dd className="font-semibold text-emerald-600">
+                  {overview.completedTasks}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Overdue</dt>
-                <dd className={cn(
-                  "font-semibold",
-                  overview.overdueTasks > 0 ? "text-red-600" : "text-slate-900"
-                )}>
+                <dd
+                  className={cn(
+                    "font-semibold",
+                    overview.overdueTasks > 0
+                      ? "text-red-600"
+                      : "text-slate-900",
+                  )}
+                >
                   {overview.overdueTasks}
                 </dd>
               </div>
@@ -234,16 +249,23 @@ export default function AnalyticsPage() {
             {activityBreakdown.length > 0 ? (
               <div className="space-y-2">
                 {activityBreakdown.map((item: any) => (
-                  <div key={item.type} className="flex items-center justify-between">
+                  <div
+                    key={item.type}
+                    className="flex items-center justify-between"
+                  >
                     <Badge variant="outline" className="text-[10px]">
                       {item.type.replace(/_/g, " ")}
                     </Badge>
-                    <span className="text-sm font-medium text-slate-900">{item.count}</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {item.count}
+                    </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No activity in this period</p>
+              <p className="text-sm text-slate-400">
+                No activity in this period
+              </p>
             )}
           </Card>
 
@@ -255,19 +277,27 @@ export default function AnalyticsPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Total Deals</dt>
-                <dd className="font-semibold text-slate-900">{overview.totalDeals}</dd>
+                <dd className="font-semibold text-slate-900">
+                  {overview.totalDeals}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Open</dt>
-                <dd className="font-semibold text-blue-600">{overview.openDeals}</dd>
+                <dd className="font-semibold text-blue-600">
+                  {overview.openDeals}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Won</dt>
-                <dd className="font-semibold text-emerald-600">{overview.wonDeals}</dd>
+                <dd className="font-semibold text-emerald-600">
+                  {overview.wonDeals}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-500">Lost</dt>
-                <dd className="font-semibold text-red-600">{overview.lostDeals}</dd>
+                <dd className="font-semibold text-red-600">
+                  {overview.lostDeals}
+                </dd>
               </div>
               <div className="flex justify-between border-t pt-2">
                 <dt className="text-slate-500">Lost Value</dt>

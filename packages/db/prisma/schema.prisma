@@ -29,16 +29,17 @@ model User {
   sessions Session[]
 
   // Relations
-  ownedContacts   Contact[]      @relation("ContactOwner")
-  ownedDeals      Deal[]         @relation("DealOwner")
-  activities      Activity[]
-  tasks           Task[]         @relation("TaskAssignee")
-  createdTasks    Task[]         @relation("TaskCreator")
-  comments        Comment[]
-  notifications   Notification[]
-  emailAccounts   EmailAccount[]
-  teamMemberships TeamMember[]
-  automations     Automation[]   @relation("AutomationCreator")
+  ownedContacts    Contact[]      @relation("ContactOwner")
+  ownedDeals       Deal[]         @relation("DealOwner")
+  activities       Activity[]
+  tasks            Task[]         @relation("TaskAssignee")
+  createdTasks     Task[]         @relation("TaskCreator")
+  comments         Comment[]
+  notifications    Notification[]
+  emailAccounts    EmailAccount[]
+  teamMemberships  TeamMember[]
+  automations      Automation[]   @relation("AutomationCreator")
+  createdPipelines Pipeline[]     @relation("PipelineCreator")
 
   @@index([email])
   @@index([role])
@@ -111,8 +112,8 @@ model TeamMember {
   teamId String
   role   TeamMemberRole @default(MEMBER)
 
-  user User @relation(fields: [userId], references: [id])
-  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
 }
@@ -146,14 +147,14 @@ model Contact {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  owner    User?         @relation("ContactOwner", fields: [ownerId], references: [id])
-  company  Company?      @relation(fields: [companyId], references: [id])
-  team     Team?         @relation(fields: [teamId], references: [id])
-  deals    DealContact[]
+  owner      User?         @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  team       Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  deals      DealContact[]
   activities Activity[]
-  tasks    Task[]
-  tags     ContactTag[]
-  emails   Email[]
+  tasks      Task[]
+  tags       ContactTag[]
+  emails     Email[]
 
   @@index([email])
   @@index([ownerId])
@@ -161,8 +162,6 @@ model Contact {
   @@index([teamId])
   @@index([status])
   @@index([lastContactedAt])
-  // Full-text search: handled via pg_trgm + GIN index in raw SQL migration.
-  // Do NOT use Prisma's @@fulltext — it only works on MySQL.
 }
 
 enum ContactSource {
@@ -202,7 +201,7 @@ model Company {
   contacts   Contact[]
   deals      Deal[]
   activities Activity[]
-  team       Team?       @relation(fields: [teamId], references: [id])
+  team       Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([name])
   @@index([domain])
@@ -241,18 +240,21 @@ model ContactTag {
 // ============================================
 
 model Pipeline {
-  id        String   @id @default(cuid())
-  name      String
-  isDefault Boolean  @default(false)
-  teamId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  isDefault   Boolean  @default(false)
+  teamId      String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  stages Stage[]
-  deals  Deal[]
-  team   Team?    @relation(fields: [teamId], references: [id])
+  stages    Stage[]
+  deals     Deal[]
+  team      Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy User? @relation("PipelineCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([teamId])
+  @@index([createdById])
 }
 
 model Stage {
@@ -267,7 +269,7 @@ model Stage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  pipeline Pipeline @relation(fields: [pipelineId], references: [id])
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals    Deal[]
 
   @@unique([pipelineId, position])
@@ -283,8 +285,6 @@ model Deal {
   pipelineId        String
   ownerId           String?
   companyId         String?
-  // DESIGN DECISION: Single-team ownership per deal.
-  // Do NOT add a DealTeam join table without rethinking getAccessibleDealIds().
   teamId            String?
   priority          DealPriority @default(MEDIUM)
   expectedCloseDate DateTime?
@@ -296,15 +296,15 @@ model Deal {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  stage    Stage         @relation(fields: [stageId], references: [id])
-  pipeline Pipeline      @relation(fields: [pipelineId], references: [id])
-  owner    User?         @relation("DealOwner", fields: [ownerId], references: [id])
-  company  Company?      @relation(fields: [companyId], references: [id])
-  team     Team?         @relation(fields: [teamId], references: [id])
-  contacts DealContact[]
+  stage      Stage         @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  pipeline   Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
+  owner      User?         @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  team       Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  contacts   DealContact[]
   activities Activity[]
-  tasks    Task[]
-  tags     DealTag[]
+  tasks      Task[]
+  tags       DealTag[]
 
   @@index([stageId])
   @@index([pipelineId])
@@ -360,9 +360,9 @@ model Activity {
   createdAt   DateTime     @default(now())
 
   user    User     @relation(fields: [userId], references: [id])
-  contact Contact? @relation(fields: [contactId], references: [id])
-  deal    Deal?    @relation(fields: [dealId], references: [id])
-  company Company? @relation(fields: [companyId], references: [id])
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   @@index([contactId, occurredAt(sort: Desc)])
   @@index([dealId, occurredAt(sort: Desc)])
@@ -398,7 +398,7 @@ model Comment {
   updatedAt  DateTime @updatedAt
 
   user    User      @relation(fields: [userId], references: [id])
-  parent  Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  parent  Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
   replies Comment[] @relation("CommentThread")
 
   @@index([entityType, entityId])
@@ -425,10 +425,10 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  assignee User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   creator  User     @relation("TaskCreator", fields: [creatorId], references: [id])
-  contact  Contact? @relation(fields: [contactId], references: [id])
-  deal     Deal?    @relation(fields: [dealId], references: [id])
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal     Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   @@index([assigneeId, status])
   @@index([dueDate])
@@ -462,7 +462,7 @@ model EmailAccount {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user   User    @relation(fields: [userId], references: [id])
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   emails Email[]
 
   @@unique([userId, email])
@@ -481,8 +481,8 @@ model Email {
   isRead      Boolean        @default(false)
   createdAt   DateTime       @default(now())
 
-  account EmailAccount @relation(fields: [accountId], references: [id])
-  contact Contact?     @relation(fields: [contactId], references: [id])
+  account EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   @@unique([accountId, externalId])
   @@index([contactId, sentAt(sort: Desc)])
@@ -513,7 +513,7 @@ model Automation {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  creator User?           @relation("AutomationCreator", fields: [createdBy], references: [id])
+  creator User?           @relation("AutomationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   logs    AutomationLog[]
 }
 
@@ -536,7 +536,7 @@ model AutomationLog {
   error        String?
   executedAt   DateTime @default(now())
 
-  automation Automation @relation(fields: [automationId], references: [id])
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
 
   @@index([automationId, executedAt(sort: Desc)])
 }
@@ -557,7 +557,7 @@ model Notification {
   readAt     DateTime?
   createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt(sort: Desc)])
 }

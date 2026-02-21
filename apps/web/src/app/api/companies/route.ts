@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@cultivated-crm/db";
-import { apiHandler, requirePermission, parseSearchParams } from "@/lib/api-utils";
+import {
+  apiHandler,
+  requirePermission,
+  parseSearchParams,
+} from "@/lib/api-utils";
 import { publishEvent, buildChannels } from "@/lib/events";
-import { scopeWhere, validateTeamMembership } from "@/lib/authorization";
+import {
+  getUserDefaultTeamId,
+  scopeWhere,
+  validateTeamMembership,
+} from "@/lib/authorization";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -66,7 +74,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const data = CreateCompanySchema.parse(body);
 
-  if (data.teamId) await validateTeamMembership(user.id, data.teamId);
+  // Auto-assign team if not provided
+  let teamId = data.teamId ?? (await getUserDefaultTeamId(user.id));
+  if (teamId) await validateTeamMembership(user.id, teamId);
 
   const company = await prisma.company.create({
     data: {
@@ -77,7 +87,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       phone: data.phone,
       website: data.website || undefined,
       annualRevenue: data.annualRevenue,
-      teamId: data.teamId,
+      teamId,
     },
     include: { _count: { select: { contacts: true, deals: true } } },
   });
@@ -87,7 +97,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     entityId: company.id,
     action: "created",
     userId: user.id,
-    channels: buildChannels({ userId: user.id, teamId: data.teamId }),
+    channels: buildChannels({ userId: user.id, teamId }),
   });
 
   return NextResponse.json(company, { status: 201 });

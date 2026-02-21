@@ -36,29 +36,40 @@ export function useMoveDealStage() {
       return res.json() as Promise<Deal>;
     },
 
-    // Optimistic update — instant UI feedback
     onMutate: async ({ dealId, stageId }) => {
       await queryClient.cancelQueries({ queryKey: ["deals"] });
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: ["deals"],
+      });
 
-      const previousDeals = queryClient.getQueryData<Deal[]>(["deals"]);
+      queryClient.setQueriesData({ queryKey: ["deals"] }, (old: any) => {
+        if (!old) return old;
+        if (old.deals) {
+          return {
+            ...old,
+            deals: old.deals.map((d: any) =>
+              d.id === dealId ? { ...d, stageId } : d,
+            ),
+          };
+        }
+        if (Array.isArray(old)) {
+          return old.map((d: any) => (d.id === dealId ? { ...d, stageId } : d));
+        }
+        return old;
+      });
 
-      queryClient.setQueryData<Deal[]>(["deals"], (old) =>
-        old?.map((d) => (d.id === dealId ? { ...d, stageId } : d))
-      );
-
-      return { previousDeals };
+      return { previousQueries };
     },
 
-    // Rollback on error
     onError: (_err, _variables, context) => {
-      queryClient.setQueryData(["deals"], context?.previousDeals);
+      context?.previousQueries?.forEach(([key, data]: [any, any]) => {
+        queryClient.setQueryData(key, data);
+      });
       toast.error("Failed to move deal. Reverted.");
     },
 
-    // Merge server response — catches server-side side effects
     onSuccess: (serverDeal) => {
-      queryClient.setQueryData<Deal>(["deal", serverDeal.id], serverDeal);
-      // Invalidate all deal lists (board view uses ["deals", { pipelineId }])
+      queryClient.setQueryData(["deal", serverDeal.id], serverDeal);
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       toast.success("Deal moved");
     },

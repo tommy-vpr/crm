@@ -51,7 +51,7 @@ function applySecurityHeaders(response: NextResponse) {
 // Only allow requests from our own origin in production.
 
 function applyCors(response: NextResponse, origin: string | null) {
-  const allowedOrigins = [process.env.NEXTAUTH_URL || "http://localhost:3000"];
+  const allowedOrigins = [process.env.AUTH_URL || "http://localhost:3000"];
 
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);

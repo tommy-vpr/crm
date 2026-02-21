@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/index";
 import { Avatar } from "@/components/ui/index";
 import { toast } from "sonner";
+import { useConfirm } from "../ui/confirm-dialog";
 
 interface TeamMember {
   id: string;
@@ -193,12 +194,46 @@ function TeamCard({
   onUpdated: () => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState("MEMBER");
   const [adding, setAdding] = useState(false);
 
   const memberUserIds = new Set(team.members.map((m) => m.userId));
   const availableUsers = users.filter((u) => !memberUserIds.has(u.id));
+
+  const confirm = useConfirm();
+
+  const handleDeleteTeam = async () => {
+    const ok = await confirm({
+      title: "Delete Team",
+      message: (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <p className="text-sm text-destructive">
+            This team has {team._count.deals} deals and {team._count.pipelines}{" "}
+            pipelines. This cannot be undone.
+          </p>
+        </div>
+      ),
+      typeToConfirm: team.name,
+      confirmLabel: "Delete Team",
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/teams/${team.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete team");
+      }
+      toast.success("Team deleted");
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete team");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleAddMember = async () => {
     if (!selectedUserId) return;
@@ -222,13 +257,16 @@ function TeamCard({
   };
 
   const handleRemoveMember = async (userId: string, userName: string) => {
-    if (!confirm(`Remove ${userName} from ${team.name}?`)) return;
+    const ok = await confirm({
+      title: "Remove Member",
+      message: `Remove ${userName} from ${team.name}?`,
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(
         `/api/teams/${team.id}/members?userId=${userId}`,
-        {
-          method: "DELETE",
-        },
+        { method: "DELETE" },
       );
       if (!res.ok) throw new Error("Failed");
       toast.success("Member removed");
@@ -251,9 +289,20 @@ function TeamCard({
             {team._count.pipelines} pipelines
           </span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowAdd(true)}>
-          + Add Member
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowAdd(true)}>
+            + Add Member
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDeleteTeam}
+            loading={deleting}
+            className="text-destructive hover:bg-destructive/10"
+          >
+            Delete
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">

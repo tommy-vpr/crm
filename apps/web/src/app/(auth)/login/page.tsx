@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -19,16 +20,42 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="w-full max-w-sm space-y-6 rounded-xl border bg-white p-8 shadow-sm">
-        <div className="text-center">
+    <div className="flex gap-8 min-h-screen items-center justify-center bg-white">
+      <div className="flex justify-between fixed top-0 w-full p-4 bg-violet-600 border-b border-violet-200 shadow-xl shadow-gray-100">
+        <div className="w-full justify-start flex items-center gap-2">
           <Image
+            src="/images/headquarter-logo.png"
+            alt="Headquarter Logo"
+            width={50}
+            height={50}
+            className="invert"
+          />
+          <span className="font-semibold text-2xl text-violet-300">CRM</span>
+        </div>
+        <div className="w-full max-w-2xl flex items-center justify-end gap-2">
+          <Link
+            href={"/login"}
+            className="w-24 text-center rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium shadow-sm transition hover:bg-gray-200 active:bg-gray-200"
+          >
+            Login
+          </Link>
+          <Link
+            href={"/signup"}
+            className="w-24 text-center rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-orange-700 active:bg-orange-700"
+          >
+            Signup
+          </Link>
+        </div>
+      </div>
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          {/* <Image
             src="/images/headquarter-logo.png"
             alt="Headquarter Logo"
             width={80}
             height={40}
             className="mx-auto"
-          />
+          /> */}
           <p className="mt-2 text-sm text-slate-500">
             Login into your CRM account
           </p>
@@ -111,7 +138,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 active:bg-slate-950"
+            className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-800 active:bg-violet-950"
           >
             Sign in
           </button>
@@ -150,6 +177,16 @@ export default function LoginPage() {
           </svg>
           Continue with Google
         </button>
+
+        <p className="text-gray-400 text-xs text-center mt-2">© 2026 HQ CRM</p>
+      </div>
+      <div className="relative w-full max-w-2xl h-[600px]">
+        <Image
+          src={"/images/crm-hero.webp"}
+          fill
+          className="w-full h-auto object-contain opacity-80"
+          alt="HQ crm main landing"
+        />
       </div>
     </div>
   );

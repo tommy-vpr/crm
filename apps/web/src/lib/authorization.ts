@@ -64,9 +64,7 @@ export async function scopeWhere(user: AuthenticatedUser) {
     OR: [
       { assigneeId: user.id },
       { creatorId: user.id },
-      ...(teamIds.length > 0
-        ? [{ deal: { teamId: { in: teamIds } } }]
-        : []),
+      ...(teamIds.length > 0 ? [{ deal: { teamId: { in: teamIds } } }] : []),
     ],
   };
 
@@ -85,19 +83,23 @@ export async function scopeWhere(user: AuthenticatedUser) {
   };
 
   // Pipelines: shared (teamId = null) or team-scoped
-  const pipelineScope = {
-    OR: [
-      { teamId: null }, // shared/global pipelines
-      ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : []),
-    ],
-  };
+  // const pipelineScope = {
+  //   OR: [
+  //     { teamId: null }, // shared/global pipelines
+  //     ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : []),
+  //   ],
+  // };
+  // Pipelines: only team-scoped (no global pipelines)
+  const pipelineScope =
+    teamIds.length > 0 ? { teamId: { in: teamIds } } : { id: "NONE" }; // no team = see nothing
 
   return {
     deal: ownerOrTeam(),
     contact: ownerOrTeam(),
-    company: teamIds.length > 0
-      ? { OR: [{ teamId: null }, { teamId: { in: teamIds } }] }
-      : { teamId: null },
+    company:
+      teamIds.length > 0
+        ? { OR: [{ teamId: null }, { teamId: { in: teamIds } }] }
+        : { teamId: null },
     task: taskScope,
     pipeline: pipelineScope,
     activity: activityScope,
@@ -105,11 +107,27 @@ export async function scopeWhere(user: AuthenticatedUser) {
   };
 }
 
+// Add to authorization.ts
+export async function canModifyPipeline(
+  user: AuthenticatedUser,
+  pipelineId: string,
+): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  const pipeline = await prisma.pipeline.findFirst({
+    where: { id: pipelineId, createdById: user.id },
+    select: { id: true },
+  });
+  return pipeline !== null;
+}
+
 /**
  * Check if a user can access a specific record by ID.
  * Use this for single-record operations (GET by id, UPDATE, DELETE).
  */
-export async function canAccessDeal(user: AuthenticatedUser, dealId: string): Promise<boolean> {
+export async function canAccessDeal(
+  user: AuthenticatedUser,
+  dealId: string,
+): Promise<boolean> {
   if (user.role === "ADMIN") return true;
   const scope = await scopeWhere(user);
   const deal = await prisma.deal.findFirst({
@@ -119,7 +137,10 @@ export async function canAccessDeal(user: AuthenticatedUser, dealId: string): Pr
   return deal !== null;
 }
 
-export async function canAccessContact(user: AuthenticatedUser, contactId: string): Promise<boolean> {
+export async function canAccessContact(
+  user: AuthenticatedUser,
+  contactId: string,
+): Promise<boolean> {
   if (user.role === "ADMIN") return true;
   const scope = await scopeWhere(user);
   const contact = await prisma.contact.findFirst({
@@ -129,7 +150,10 @@ export async function canAccessContact(user: AuthenticatedUser, contactId: strin
   return contact !== null;
 }
 
-export async function canAccessCompany(user: AuthenticatedUser, companyId: string): Promise<boolean> {
+export async function canAccessCompany(
+  user: AuthenticatedUser,
+  companyId: string,
+): Promise<boolean> {
   if (user.role === "ADMIN") return true;
   const scope = await scopeWhere(user);
   const company = await prisma.company.findFirst({
@@ -139,7 +163,10 @@ export async function canAccessCompany(user: AuthenticatedUser, companyId: strin
   return company !== null;
 }
 
-export async function canAccessTask(user: AuthenticatedUser, taskId: string): Promise<boolean> {
+export async function canAccessTask(
+  user: AuthenticatedUser,
+  taskId: string,
+): Promise<boolean> {
   if (user.role === "ADMIN") return true;
   const scope = await scopeWhere(user);
   const task = await prisma.task.findFirst({
@@ -149,7 +176,10 @@ export async function canAccessTask(user: AuthenticatedUser, taskId: string): Pr
   return task !== null;
 }
 
-export async function canAccessPipeline(user: AuthenticatedUser, pipelineId: string): Promise<boolean> {
+export async function canAccessPipeline(
+  user: AuthenticatedUser,
+  pipelineId: string,
+): Promise<boolean> {
   if (user.role === "ADMIN") return true;
   const scope = await scopeWhere(user);
   const pipeline = await prisma.pipeline.findFirst({
@@ -165,7 +195,7 @@ export async function canAccessPipeline(user: AuthenticatedUser, pipelineId: str
  */
 export async function validateTeamMembership(
   userId: string,
-  teamId: string | null | undefined
+  teamId: string | null | undefined,
 ): Promise<void> {
   if (!teamId) return; // null teamId = no team assignment (allowed)
 
@@ -183,5 +213,18 @@ export async function validateTeamMembership(
  */
 export function denyAccess(): never {
   const { NextResponse } = require("next/server");
-  throw NextResponse.json({ error: "Forbidden: insufficient access" }, { status: 403 });
+  throw NextResponse.json(
+    { error: "Forbidden: insufficient access" },
+    { status: 403 },
+  );
+}
+
+export async function getUserDefaultTeamId(
+  userId: string,
+): Promise<string | undefined> {
+  const membership = await prisma.teamMember.findFirst({
+    where: { userId },
+    select: { teamId: true },
+  });
+  return membership?.teamId ?? undefined;
 }

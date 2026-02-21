@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@cultivated-crm/db";
-import { apiHandler, requirePermission } from "@/lib/api-utils";
-import { canAccessPipeline, denyAccess } from "@/lib/authorization";
+import { apiHandler, requirePermission, requireUser } from "@/lib/api-utils";
+import {
+  canAccessPipeline,
+  canModifyPipeline,
+  denyAccess,
+} from "@/lib/authorization";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -29,6 +33,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: Params) => {
           _count: { select: { deals: true } },
         },
       },
+      createdBy: { select: { id: true, name: true, email: true, image: true } },
       _count: { select: { deals: true } },
     },
   });
@@ -41,49 +46,57 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: Params) => {
 });
 
 // PATCH /api/pipelines/:id (scoped)
-export const PATCH = apiHandler(async (req: NextRequest, { params }: Params) => {
-  const user = await requirePermission("update", "deal");
-  const { id } = await params;
+export const PATCH = apiHandler(
+  async (req: NextRequest, { params }: Params) => {
+    const user = await requireUser();
+    const { id } = await params;
 
-  if (!(await canAccessPipeline(user, id))) denyAccess();
+    if (!(await canAccessPipeline(user, id))) denyAccess();
+    if (!(await canModifyPipeline(user, id))) denyAccess();
 
-  const body = await req.json();
-  const data = UpdatePipelineSchema.parse(body);
+    const body = await req.json();
+    const data = UpdatePipelineSchema.parse(body);
 
-  if (data.isDefault) {
-    await prisma.pipeline.updateMany({
-      where: { isDefault: true },
-      data: { isDefault: false },
+    if (data.isDefault) {
+      await prisma.pipeline.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const pipeline = await prisma.pipeline.update({
+      where: { id },
+      data: data as any,
+      include: {
+        stages: { orderBy: { position: "asc" } },
+        _count: { select: { deals: true } },
+      },
     });
-  }
 
-  const pipeline = await prisma.pipeline.update({
-    where: { id },
-    data: data as any,
-    include: {
-      stages: { orderBy: { position: "asc" } },
-      _count: { select: { deals: true } },
-    },
-  });
-
-  return NextResponse.json(pipeline);
-});
+    return NextResponse.json(pipeline);
+  },
+);
 
 // DELETE /api/pipelines/:id (scoped)
-export const DELETE = apiHandler(async (_req: NextRequest, { params }: Params) => {
-  const user = await requirePermission("delete", "deal");
-  const { id } = await params;
+export const DELETE = apiHandler(
+  async (_req: NextRequest, { params }: Params) => {
+    const user = await requireUser();
+    const { id } = await params;
 
-  if (!(await canAccessPipeline(user, id))) denyAccess();
+    if (!(await canAccessPipeline(user, id))) denyAccess();
+    if (!(await canModifyPipeline(user, id))) denyAccess();
 
-  const dealCount = await prisma.deal.count({ where: { pipelineId: id } });
-  if (dealCount > 0) {
-    return NextResponse.json(
-      { error: `Cannot delete pipeline with ${dealCount} active deals` },
-      { status: 400 }
-    );
-  }
+    const dealCount = await prisma.deal.count({ where: { pipelineId: id } });
+    if (dealCount > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete pipeline with ${dealCount} active deals. Move or close them first.`,
+        },
+        { status: 400 },
+      );
+    }
 
-  await prisma.pipeline.delete({ where: { id } });
-  return NextResponse.json({ success: true });
-});
+    await prisma.pipeline.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  },
+);

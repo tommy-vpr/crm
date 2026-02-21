@@ -52,7 +52,8 @@ export default function DealsPage() {
 
   const debouncedSearch = useDebounce(search);
   const { data: pipelines } = usePipelines();
-  const defaultPipeline = pipelines?.find((p: any) => p.isDefault) ?? pipelines?.[0];
+  const defaultPipeline =
+    pipelines?.find((p: any) => p.isDefault) ?? pipelines?.[0];
 
   const { data, isLoading } = useDeals({
     search: debouncedSearch || undefined,
@@ -71,7 +72,8 @@ export default function DealsPage() {
   const total = data?.total ?? 0;
   const stages = defaultPipeline?.stages ?? [];
 
-  const allSelected = deals.length > 0 && deals.every((d: any) => selected.has(d.id));
+  const allSelected =
+    deals.length > 0 && deals.every((d: any) => selected.has(d.id));
 
   function toggleAll() {
     if (allSelected) setSelected(new Set());
@@ -89,15 +91,25 @@ export default function DealsPage() {
     if (!confirm(`Delete ${selected.size} deal(s)?`)) return;
     bulkOp.mutate(
       { entity: "deals", action: "delete", ids: Array.from(selected) },
-      { onSuccess: () => setSelected(new Set()) }
+      { onSuccess: () => setSelected(new Set()) },
     );
   }
 
   function handleBulkPriority() {
     if (!bulkPriority) return;
     bulkOp.mutate(
-      { entity: "deals", action: "update_priority", ids: Array.from(selected), priority: bulkPriority },
-      { onSuccess: () => { setSelected(new Set()); setBulkPriority(""); } }
+      {
+        entity: "deals",
+        action: "update_priority",
+        ids: Array.from(selected),
+        priority: bulkPriority,
+      },
+      {
+        onSuccess: () => {
+          setSelected(new Set());
+          setBulkPriority("");
+        },
+      },
     );
   }
 
@@ -162,7 +174,9 @@ export default function DealsPage() {
       {/* Bulk Actions Bar */}
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
-          <span className="text-sm font-medium text-primary">{selected.size} selected</span>
+          <span className="text-sm font-medium text-primary">
+            {selected.size} selected
+          </span>
           <div className="h-4 w-px bg-primary/20" />
           <Select
             value={bulkPriority}
@@ -176,7 +190,11 @@ export default function DealsPage() {
             <option value="URGENT">Urgent</option>
           </Select>
           {bulkPriority && (
-            <Button size="sm" onClick={handleBulkPriority} disabled={bulkOp.isPending}>
+            <Button
+              size="sm"
+              onClick={handleBulkPriority}
+              disabled={bulkOp.isPending}
+            >
               Apply
             </Button>
           )}
@@ -204,7 +222,11 @@ export default function DealsPage() {
       ) : deals.length === 0 ? (
         <EmptyState
           title="No deals yet"
-          description={search ? "Try a different search term" : "Create your first deal to start tracking"}
+          description={
+            search
+              ? "Try a different search term"
+              : "Create your first deal to start tracking"
+          }
           action={
             !search ? (
               <Button onClick={() => setShowCreate(true)}>+ New Deal</Button>
@@ -240,7 +262,7 @@ export default function DealsPage() {
                   key={deal.id}
                   className={cn(
                     "transition hover:bg-slate-50",
-                    selected.has(deal.id) && "bg-primary/5"
+                    selected.has(deal.id) && "bg-primary/5",
                   )}
                 >
                   <td className="px-4 py-3">
@@ -252,7 +274,10 @@ export default function DealsPage() {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/deals/${deal.id}`} className="font-medium text-slate-900 hover:text-primary">
+                    <Link
+                      href={`/deals/${deal.id}`}
+                      className="font-medium text-slate-900 hover:text-primary"
+                    >
                       {deal.title}
                     </Link>
                   </td>
@@ -260,7 +285,12 @@ export default function DealsPage() {
                     {formatCurrency(deal.value)}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge style={{ backgroundColor: deal.stage?.color, color: "white" }}>
+                    <Badge
+                      style={{
+                        backgroundColor: deal.stage?.color,
+                        color: "white",
+                      }}
+                    >
                       {deal.stage?.name}
                     </Badge>
                   </td>
@@ -271,7 +301,10 @@ export default function DealsPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {deal.company ? (
-                      <Link href={`/companies/${deal.company.id}`} className="hover:text-primary">
+                      <Link
+                        href={`/companies/${deal.company.id}`}
+                        className="hover:text-primary"
+                      >
                         {deal.company.name}
                       </Link>
                     ) : (
@@ -281,8 +314,14 @@ export default function DealsPage() {
                   <td className="px-4 py-3">
                     {deal.owner ? (
                       <div className="flex items-center gap-2">
-                        <Avatar name={deal.owner.name ?? "?"} src={deal.owner.image} size="sm" />
-                        <span className="text-slate-600">{deal.owner.name}</span>
+                        <Avatar
+                          name={deal.owner.name ?? "?"}
+                          src={deal.owner.image}
+                          size="sm"
+                        />
+                        <span className="text-slate-600">
+                          {deal.owner.name}
+                        </span>
                       </div>
                     ) : (
                       <span className="text-slate-400">Unassigned</span>
@@ -309,7 +348,12 @@ export default function DealsPage() {
               ))}
             </tbody>
           </table>
-          <Pagination total={total} limit={limit} offset={offset} onPageChange={setOffset} />
+          <Pagination
+            total={total}
+            limit={limit}
+            offset={offset}
+            onPageChange={setOffset}
+          />
         </div>
       )}
 
@@ -322,6 +366,7 @@ export default function DealsPage() {
           <DealForm
             stages={stages}
             pipelineId={defaultPipeline.id}
+            pipelines={pipelines}
             onSubmit={(data) => {
               createDeal.mutate(data, {
                 onSuccess: () => setShowCreate(false),

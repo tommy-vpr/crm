@@ -17,10 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
   Badge,
+  Select,
 } from "@/components/ui/index";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { TeamManagement } from "@/components/settings/team-management";
+import { useSession } from "next-auth/react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // ─── Stage Editor Row ────────────────────────────────────────────
 
@@ -38,6 +41,8 @@ function StageRow({
   const [color, setColor] = useState(stage.color);
   const [probability, setProbability] = useState(stage.probability);
   const [saving, setSaving] = useState(false);
+
+  const confirm = useConfirm();
 
   const handleSave = async () => {
     setSaving(true);
@@ -58,7 +63,15 @@ function StageRow({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete "${stage.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete Stage",
+      message:
+        stage._count?.deals > 0
+          ? `This stage has ${stage._count.deals} active deal${stage._count.deals !== 1 ? "s" : ""}. Move them first.`
+          : `Delete "${stage.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await pipelinesService.deleteStage(pipelineId, stage.id);
       toast.success("Stage deleted");
@@ -151,15 +164,26 @@ function StageRow({
 
 function PipelineCard({
   pipeline,
+  allPipelines,
   onUpdated,
 }: {
   pipeline: any;
+  allPipelines: any[];
   onUpdated: () => void;
 }) {
   const [showAddStage, setShowAddStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState("#6B7280");
   const [adding, setAdding] = useState(false);
+  const [showMigrate, setShowMigrate] = useState(false);
+  const [targetPipelineId, setTargetPipelineId] = useState("");
+  const [migrating, setMigrating] = useState(false);
+  const { data: session } = useSession();
+  const isOwner = session?.user?.id === pipeline.createdBy?.id;
+  const confirm = useConfirm();
+
+  const otherPipelines = allPipelines.filter((p) => p.id !== pipeline.id);
+  const dealCount = pipeline._count?.deals ?? 0;
 
   const handleAddStage = async () => {
     if (!newStageName.trim()) return;
@@ -191,7 +215,27 @@ function PipelineCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete "${pipeline.name}"? This cannot be undone.`)) return;
+    // If pipeline has deals, show migration dialog
+    if (dealCount > 0) {
+      if (otherPipelines.length === 0) {
+        toast.error(
+          "This is your only pipeline. Delete or close all deals before removing it.",
+        );
+        return;
+      }
+      setShowMigrate(true);
+      return;
+    }
+
+    // No deals — simple delete with confirmation
+    const ok = await confirm({
+      title: "Delete Pipeline",
+      message: "This will permanently delete the pipeline and all its stages.",
+      confirmLabel: "Delete",
+      typeToConfirm: pipeline.name,
+    });
+    if (!ok) return;
+
     try {
       await pipelinesService.delete(pipeline.id);
       toast.success("Pipeline deleted");
@@ -200,6 +244,37 @@ function PipelineCard({
       toast.error(err.message || "Failed to delete pipeline");
     }
   };
+
+  const handleMigrateAndDelete = async () => {
+    if (!targetPipelineId) return;
+    setMigrating(true);
+    try {
+      const res = await fetch(`/api/pipelines/${pipeline.id}/migrate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetPipelineId,
+          deleteAfterMigrate: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Migration failed");
+      }
+      const result = await res.json();
+      toast.success(
+        `Moved ${result.migratedDeals} deal${result.migratedDeals !== 1 ? "s" : ""} and deleted pipeline`,
+      );
+      setShowMigrate(false);
+      onUpdated();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to migrate deals");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const targetPipeline = otherPipelines.find((p) => p.id === targetPipelineId);
 
   return (
     <Card className="p-5">
@@ -210,8 +285,16 @@ function PipelineCard({
           </h3>
           {pipeline.isDefault && <Badge variant="success">Default</Badge>}
           <span className="text-sm text-slate-500">
-            {pipeline._count?.deals ?? 0} deals
+            {dealCount} deal{dealCount !== 1 ? "s" : ""}
           </span>
+          {pipeline.createdBy && (
+            <span className="text-xs text-slate-400">
+              by{" "}
+              {isOwner
+                ? "you"
+                : pipeline.createdBy.name || pipeline.createdBy.email}
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           {!pipeline.isDefault && (
@@ -277,6 +360,119 @@ function PipelineCard({
           </Button>
         </div>
       )}
+
+      {/* ── Migrate Deals Dialog ── */}
+      <Dialog
+        open={showMigrate}
+        onClose={() => {
+          setShowMigrate(false);
+          setTargetPipelineId("");
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Move Deals & Delete Pipeline</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-medium text-amber-800">
+              "{pipeline.name}" has {dealCount} deal
+              {dealCount !== 1 ? "s" : ""}
+            </p>
+            <p className="mt-1 text-sm text-amber-700">
+              Choose a pipeline to move them to. Deals will be mapped to
+              matching stages by position (e.g. first stage → first stage).
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Move deals to:</label>
+            <Select
+              value={targetPipelineId}
+              onChange={(e) => setTargetPipelineId(e.target.value)}
+              className="mt-1"
+            >
+              <option value="">Select pipeline...</option>
+              {otherPipelines.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.stages?.length ?? 0} stages,{" "}
+                  {p._count?.deals ?? 0} existing deals)
+                </option>
+              ))}
+            </Select>
+          </div>
+          {/* Stage mapping preview */}
+          {targetPipeline && (
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+                Stage Mapping Preview
+              </p>
+              <div className="space-y-1.5">
+                {pipeline.stages
+                  ?.sort((a: any, b: any) => a.position - b.position)
+                  .map((sourceStage: any, i: number) => {
+                    const targetStages = targetPipeline.stages?.sort(
+                      (a: any, b: any) => a.position - b.position,
+                    );
+                    const targetStage =
+                      targetStages?.[
+                        Math.min(i, (targetStages?.length ?? 1) - 1)
+                      ];
+                    return (
+                      <div
+                        key={sourceStage.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{
+                              backgroundColor: sourceStage.color,
+                            }}
+                          />
+                          {sourceStage.name}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{
+                              backgroundColor: targetStage?.color ?? "#6B7280",
+                            }}
+                          />
+                          {targetStage?.name ?? "—"}
+                        </span>
+                        {sourceStage._count?.deals > 0 && (
+                          <span className="text-xs text-slate-400">
+                            ({sourceStage._count.deals} deal
+                            {sourceStage._count.deals !== 1 ? "s" : ""})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMigrate(false);
+                setTargetPipelineId("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!targetPipelineId}
+              loading={migrating}
+              onClick={handleMigrateAndDelete}
+            >
+              Move {dealCount} Deal{dealCount !== 1 ? "s" : ""} & Delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </Card>
   );
 }
@@ -292,6 +488,7 @@ export default function SettingsPage() {
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+    queryClient.invalidateQueries({ queryKey: ["deals"] });
   };
 
   const handleCreatePipeline = () => {
@@ -332,6 +529,7 @@ export default function SettingsPage() {
             <PipelineCard
               key={pipeline.id}
               pipeline={pipeline}
+              allPipelines={pipelines}
               onUpdated={refresh}
             />
           ))}

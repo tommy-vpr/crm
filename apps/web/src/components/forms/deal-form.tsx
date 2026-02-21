@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label, Select, Textarea } from "@/components/ui/index";
 import { useCompanies } from "@/hooks/use-companies";
 import type { z } from "zod";
+import { useState } from "react";
 
 type DealFormData = z.infer<typeof CreateDealSchema>;
 
@@ -25,34 +26,72 @@ interface DealFormProps {
 
 export function DealForm({
   defaultValues,
-  stages,
-  pipelineId,
+  stages: initialStages,
+  pipelineId: defaultPipelineId,
   defaultStageId,
   onSubmit,
   onCancel,
   loading,
   submitLabel = "Create Deal",
-}: DealFormProps) {
+  pipelines,
+}: DealFormProps & {
+  pipelines?: {
+    id: string;
+    name: string;
+    stages: { id: string; name: string; color: string }[];
+  }[];
+}) {
+  const [activePipelineId, setActivePipelineId] = useState(defaultPipelineId);
+
+  const activePipeline = pipelines?.find((p) => p.id === activePipelineId);
+  const stages = activePipeline?.stages ?? initialStages;
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealFormData>({
     resolver: zodResolver(CreateDealSchema),
     defaultValues: {
-      pipelineId,
-      stageId: defaultStageId ?? stages[0]?.id,
+      pipelineId: defaultPipelineId,
+      stageId: defaultStageId ?? initialStages[0]?.id,
       currency: "USD",
       priority: "MEDIUM",
       ...defaultValues,
     },
   });
 
+  const handlePipelineChange = (newPipelineId: string) => {
+    setActivePipelineId(newPipelineId);
+    setValue("pipelineId", newPipelineId);
+    const newStages =
+      pipelines?.find((p) => p.id === newPipelineId)?.stages ?? [];
+    if (newStages[0]) setValue("stageId", newStages[0].id);
+  };
+
   const { data: companiesData } = useCompanies({ limit: 100 });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <input type="hidden" {...register("pipelineId")} />
+
+      {pipelines && pipelines.length > 1 && (
+        <div>
+          <Label htmlFor="pipeline">Pipeline</Label>
+          <Select
+            id="pipeline"
+            value={activePipelineId}
+            onChange={(e) => handlePipelineChange(e.target.value)}
+          >
+            {pipelines.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div>
         <Label htmlFor="title" required>

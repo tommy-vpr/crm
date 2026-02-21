@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@cultivated-crm/db";
-import { apiHandler, requirePermission, parseSearchParams } from "@/lib/api-utils";
+import {
+  apiHandler,
+  requirePermission,
+  parseSearchParams,
+} from "@/lib/api-utils";
 import { scopeWhere } from "@/lib/authorization";
 
 export const runtime = "nodejs";
@@ -49,10 +53,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
       where: { ...dealScope, stage: { isLost: true } },
     }),
     prisma.contact.count({ where: { ...contactScope } }),
-    prisma.contact.count({ where: { ...contactScope, createdAt: { gte: since } } }),
+    prisma.contact.count({
+      where: { ...contactScope, createdAt: { gte: since } },
+    }),
     prisma.company.count({ where: { ...scope.company } }),
-    prisma.task.count({ where: { ...taskScope, status: { in: ["TODO", "IN_PROGRESS"] } } }),
-    prisma.task.count({ where: { ...taskScope, status: "DONE", completedAt: { gte: since } } }),
+    prisma.task.count({
+      where: { ...taskScope, status: { in: ["TODO", "IN_PROGRESS"] } },
+    }),
+    prisma.task.count({
+      where: { ...taskScope, status: "DONE", completedAt: { gte: since } },
+    }),
     prisma.task.count({
       where: {
         ...taskScope,
@@ -60,7 +70,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         dueDate: { lt: new Date() },
       },
     }),
-    prisma.activity.count({ where: { ...activityScope, createdAt: { gte: since } } }),
+    prisma.activity.count({
+      where: { ...activityScope, createdAt: { gte: since } },
+    }),
     prisma.stage.findMany({
       include: {
         deals: {
@@ -100,16 +112,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const openPipelineValue = dealsByStage.reduce(
     (sum: number, stage: any) =>
       sum + stage.deals.reduce((s: number, d: any) => s + (d.value || 0), 0),
-    0
+    0,
   );
 
   const wonRevenue = dealsWonInPeriod.reduce(
     (sum: number, d: any) => sum + (d.value || 0),
-    0
+    0,
   );
   const lostValue = dealsLostInPeriod.reduce(
     (sum: number, d: any) => sum + (d.value || 0),
-    0
+    0,
   );
 
   const winRate =
@@ -117,7 +129,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ? Math.round(
           (dealsWonInPeriod.length /
             (dealsWonInPeriod.length + dealsLostInPeriod.length)) *
-            100
+            100,
         )
       : 0;
 
